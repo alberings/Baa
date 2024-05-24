@@ -1,0 +1,31 @@
+<!-- payment_success.html -->
+
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Payment Success Events</h1>
+<div>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Payment Method</th>
+                <th>Time of Success</th>
+                <!-- <th>User ID</th> -->
+            </tr>
+        </thead>
+        <tbody>
+            {% for success in successes %}
+            <tr>
+                <td>{{ success.path }}</td>
+                <td>{{ success.timestamp }}</td>
+                <!-- <td>{{ success.user_id }}</td> -->
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="3">No payment successes found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

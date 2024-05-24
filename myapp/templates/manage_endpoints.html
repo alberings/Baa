@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Endpoints</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Manage Endpoints</h2>
+        
+        <!-- Display list of endpoints -->
+        <h4>Your Endpoints</h4>
+        <ul class="list-group mb-4">
+            {% for endpoint in endpoints %}
+            <li class="list-group-item">
+                <strong>URL:</strong> {{ endpoint.url }}<br>
+                <strong>API Key:</strong> {{ endpoint.api_key }}<br>
+                <strong>Custom JS:</strong> <pre>{{ endpoint.custom_js|default:"None" }}</pre>  <!-- Display custom JS -->
+                <button class="btn btn-sm btn-danger float-right" onclick="deleteEndpoint('{{ endpoint.id }}')">Delete</button>
+                <strong>Tracking Script:</strong>
+                <pre><code>&lt;script src="http://127.0.0.1:8000/tracking-script/{{ endpoint.id }}/"&gt;&lt;/script&gt;</code></pre>
+            </li>
+            {% empty %}
+            <li class="list-group-item">No endpoints found.</li>
+            {% endfor %}
+        </ul>
+        
+        <!-- Form to add a new endpoint -->
+        <h4>Add New Endpoint</h4>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <input type="hidden" name="add_endpoint" value="1">
+            <button type="submit" class="btn btn-primary">Add Endpoint</button>
+        </form>
+
+        <!-- Form to add custom JS to an endpoint -->
+        <h4 class="mt-5">Add Custom JS to an Endpoint</h4>
+        <form method="post">
+            {% csrf_token %}
+            {{ js_form.as_p }}
+            <input type="hidden" name="add_custom_js" value="1">
+            <button type="submit" class="btn btn-primary">Add Custom JS</button>
+        </form>
+
+        <!-- Instructions for adding custom JS -->
+        <h4 class="mt-5">Add Custom Tracking Features</h4>
+        <p>You can add custom JavaScript functions in the "Custom JS" field of your endpoint. For example:</p>
+        <pre><code>
+document.querySelectorAll('video').forEach(video => {
+  video.addEventListener('play', () => {
+    sendEvent({ type: 'video_play', path: window.location.href, videoId: video.id });
+  });
+});
+        </code></pre>
+    </div>
+</body>
+</html>

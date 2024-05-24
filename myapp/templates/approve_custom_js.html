@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Approve Custom JS</title>
+</head>
+<body>
+    <h2>Pending Custom JavaScript Approvals</h2>
+    <form method="post">
+        {% csrf_token %}
+        <ul>
+            {% for endpoint in endpoints %}
+            <li>
+                <strong>URL:</strong> {{ endpoint.url }}<br>
+                <strong>Custom JS:</strong> <pre>{{ endpoint.custom_js }}</pre>
+                <button type="submit" name="action" value="approve" formaction="?endpoint_id={{ endpoint.id }}">Approve</button>
+                <button type="submit" name="action" value="reject" formaction="?endpoint_id={{ endpoint.id }}">Reject</button>
+            </li>
+            {% endfor %}
+        </ul>
+    </form>
+</body>
+</html>

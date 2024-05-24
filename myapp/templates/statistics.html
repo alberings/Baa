@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block head %}
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+{% endblock head %}
+
+{% block content %}
+<div class="container-fluid">
+    <div id="event_statistics" class="row">
+        <div class="col-md-12">
+            <h1 class="mt-5">DATU ANALĪZE</h1>
+
+            <!-- Filter by Path -->
+            <form method="get" action="." class="mb-3">
+                <div class="form-group">
+                    <label for="path">Atlasīšana pēc ceļa:</label>
+                    <input type="text" id="path" name="path" class="form-control" placeholder="Enter path" value="{{ request.GET.path }}">
+                </div>
+                <button type="submit" class="btn btn-primary">Atlasīt</button>
+            </form>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div id="chartiii1">
+                        <h1 class="mt-5">Lapu apmeklēšanas skaita grafiks</h1>
+                        <div id="pageview_chart" class="mt-4"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="row">    
+                <div class="col-md-6">
+                    <div id="chartiii2">
+                        <h1 class="mt-5">Klasifikācijas datu grafiks</h1>
+                        <div id="chart" class="mt-4"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="payment_pageviews_percentage" class="row">
+                <div class="col-md-12">
+                    <h2 class="mt-5">Apmaksāšanas procenti</h2>
+                    <div>
+                        <p>Kopējais apmaksāšanas apmeklēšanas procents: {{ payment_percentage|floatformat:2 }}%</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="payment_success_events" class="row">
+                <div class="col-md-12">
+                    <h1 class="mt-5">Kopējie apmaksāšanas apmeklējumi </h1>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Maksāšanas Metode</th>
+                                    <th>Datums un Laiks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for success in successes %}
+                                <tr>
+                                    <td>{{ success.path }}</td>
+                                    <td>{{ success.timestamp }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="2">No payment successes found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="all_events" class="row">
+                <div class="col-md-12">
+                    <h1 class="mt-5">Visi Iegūtie Dati</h1>
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Path</th>
+                                    <th>Timestamp</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for event in events %}
+                                <tr>
+                                    <td>{{ event.type }}</td>
+                                    <td>{{ event.path }}</td>
+                                    <td>{{ event.timestamp }}</td>
+                                    <td>
+                                      {% if event.type == 'scroll' %}
+                                      Max Depth: {{ event.details.depth }}%
+                                  {% elif event.type == 'hover' %}
+                                      Hovered: {{ event.target }}
+                                  {% else %}
+                                      {{ event.details }}
+                                  {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4">No events found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Parse the JSON data from the server
+    const data = JSON.parse('{{ events_json|safe }}');
+    const pageviewCounts = JSON.parse('{{ pageview_counts_json|safe }}');
+
+    // Reduce the event data into counts
+    const eventCounts = data.reduce((acc, event) => {
+        acc[event.type] = (acc[event.type] || 0) + 1;
+        return acc;
+    }, {});
+
+    // Function to dynamically calculate width based on number of bars
+    function getResponsiveWidth(itemCount, minWidthPerItem, margins) {
+        const baseWidth = 600; // Minimum width
+        return Math.max(baseWidth, itemCount * minWidthPerItem + margins.left + margins.right);
+    }
+    
+    // Margins and dimensions setup
+    const marginEvents = { top: 20, right: 20, bottom: 90, left: 40 };
+    const eventWidth = getResponsiveWidth(Object.keys(eventCounts).length, 50, marginEvents);
+    const eventHeight = 400;
+
+    // SVG for the Events Chart
+    const svgEvents = d3.select('#chart').append('svg')
+        .attr('width', eventWidth)
+        .attr('height', eventHeight)
+        .append('g')
+        .attr('transform', `translate(${marginEvents.left},${marginEvents.top})`);
+
+    // Scales and axes for the Events Chart
+    const xEvents = d3.scaleBand()
+        .rangeRound([0, eventWidth - marginEvents.left - marginEvents.right])
+        .padding(0.1)
+        .domain(Object.keys(eventCounts));
+
+    const yEvents = d3.scaleLinear()
+        .range([eventHeight - marginEvents.top - marginEvents.bottom, 0])
+        .domain([0, d3.max(Object.values(eventCounts))]);
+
+    // Bars for the Events Chart
+    svgEvents.selectAll('.bar')
+        .data(Object.entries(eventCounts))
+        .enter().append('rect')
+        .attr('class', 'bar')
+        .attr('x', d => xEvents(d[0]))
+        .attr('y', d => yEvents(d[1]))
+        .attr('width', xEvents.bandwidth())
+        .attr('height', d => eventHeight - marginEvents.top - marginEvents.bottom - yEvents(d[1]))
+        .attr('fill', 'steelblue');
+
+    // X Axis for the Events Chart
+    svgEvents.append('g')
+        .attr('class', 'x axis')
+        .attr('transform', `translate(0,${eventHeight - marginEvents.top - marginEvents.bottom})`)
+        .call(d3.axisBottom(xEvents))
+        .selectAll('text')
+        .attr('transform', 'rotate(-45)')
+        .style('text-anchor', 'end');
+
+    // Y Axis for the Events Chart
+    svgEvents.append('g')
+        .attr('class', 'y axis')
+        .call(d3.axisLeft(yEvents));
+
+    // Pageview Chart
+    const numPageviewItems = Object.keys(pageviewCounts).length;
+    const minWidthPageview = 600;
+    const dynamicWidthPageview = Math.max(minWidthPageview, numPageviewItems * 50);
+  
+    const heightPageview = 400;
+    const marginPageview = { top: 20, right: 20, bottom: 90, left: 40 };
+
+    const svgPageview = d3.select('#pageview_chart').append('svg')
+        .attr('width', dynamicWidthPageview)
+        .attr('height', heightPageview);
+
+    const xPageview = d3.scaleBand()
+        .range([marginPageview.left, dynamicWidthPageview - marginPageview.right])
+        .padding(0.1)
+        .domain(Object.keys(pageviewCounts));
+
+    const yPageview = d3.scaleLinear()
+        .range([heightPageview - marginPageview.bottom, marginPageview.top])
+        .domain([0, d3.max(Object.values(pageviewCounts))]);
+
+    svgPageview.selectAll('.bar')
+        .data(Object.entries(pageviewCounts))
+        .enter().append('rect')
+        .attr('class', 'bar')
+        .attr('x', d => xPageview(d[0]))
+        .attr('y', d => yPageview(d[1]))
+        .attr('width', xPageview.bandwidth())
+        .attr('height', d => yPageview(0) - yPageview(d[1]))
+        .attr('fill', 'steelblue');
+
+    svgPageview.append('g')
+        .attr('transform', `translate(0,${heightPageview - marginPageview.bottom})`)
+        .call(d3.axisBottom(xPageview))
+        .selectAll('text')
+        .attr('transform', 'translate(-10,0)rotate(-45)')
+        .style('text-anchor', 'end');
+
+    svgPageview.append('g')
+        .attr('transform', `translate(${marginPageview.left},0)`)
+        .call(d3.axisLeft(yPageview));
+});
+</script>
+
+<!-- Script for scroll-to-top button -->
+<script>
+  $(document).ready(function(){
+      // Show or hide the button based on scroll position
+      $(window).scroll(function(){
+          if ($(this).scrollTop() > 100) {
+              $('.scroll-to-top').fadeIn();
+          } else {
+              $('.scroll-to-top').fadeOut();
+          }
+      });
+
+      // Scroll to top when the button is clicked
+      $('.scroll-to-top').click(function(){
+          $('html, body').animate({scrollTop : 0},800);
+          return false;
+      });
+  });
+</script>
+
+<!-- Button to scroll to top -->
+<a href="#" class="scroll-to-top btn btn-primary btn-lg"><i class="fa fa-arrow-up"></i></a>
+
+{% endblock %}
