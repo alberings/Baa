@@ -21,6 +21,7 @@ from .utils import sanitize_js
 from django.contrib.admin.views.decorators import staff_member_required
 from django import forms
 from .forms import UserProfileForm
+from django.core.paginator import Paginator
 
 logger = logging.getLogger(__name__)
 
@@ -65,12 +66,46 @@ class EventAPIView(APIView):
         return Response({"status": "success"}, status=201)
 
 def parse_datetime(dt_str):
-    return datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+    try:
+        return datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S.%fZ')
+    except ValueError:
+        return datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%SZ')
+
+def summarize_user_journey(events):
+    summary = {}
+    for event in events:
+        session_id = event['details'].get('session_id', 'default_session_id')
+        if session_id not in summary:
+            summary[session_id] = []
+        summary[session_id].append(event)
+    return summary
+
+def analyze_journey(summary):
+    insights = {}
+    for session_id, events in summary.items():
+        journey = ""
+        for event in events:
+            journey += f"{event['timestamp']}: {event['type']} on {event['path']}\n"
+            if event['type'] == 'pageview' and '/payment/' in event['path']:
+                insights[session_id] = "User completed the order."
+                break  # No need to check further if the order is completed
+            elif event['type'] == 'pageview' and '/checkout/' in event['path']:
+                if 'duration' not in [e['type'] for e in events]:
+                    insights[session_id] = "User visited checkout page but did not complete purchase."
+                else:
+                    insights[session_id] = "User spent time on checkout page but did not complete purchase."
+        
+        if session_id not in insights:
+            insights[session_id] = "User did not reach checkout page."
+    
+    return insights
+
 
 @login_required
 def event_statistics(request):
     user = request.user
     path = request.GET.get('path', None)
+    selected_session_id = request.GET.get('session_id', None)
     
     if path:
         try:
@@ -90,17 +125,31 @@ def event_statistics(request):
     events_data = [event['fields'] for event in json.loads(events_json)]
 
     scroll_sessions = {}
+    user_profiles = {}  # Dictionary to store user profiles
     last_event_time = None
-    session_id = 0
+    session_counter = 0
     last_event_type = None
+
     for event in events_data:
-        if isinstance(event['timestamp'], str):
-            event['timestamp'] = parse_datetime(event['timestamp'])
-        event_time = event['timestamp']
+        event_time = parse_datetime(event['timestamp'])  # Added missing event_time parsing
+        event['timestamp'] = event_time  # Store parsed datetime object
+
+        session_id = event['details'].get('session_id', 'default_session_id')  # Extract session ID
+
+        if session_id not in user_profiles:
+            user_profiles[session_id] = []
+
+        user_profiles[session_id].append({
+            'type': event['type'],
+            'path': event['path'],
+            'timestamp': event_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'details': event['details']
+        })
+
         if event['type'] == 'scroll':
             if last_event_time and (event_time - last_event_time > timedelta(minutes=1) or last_event_type != 'scroll'):
-                session_id += 1
-            session_key = (event['path'], session_id)
+                session_counter += 1
+            session_key = (event['path'], f"{session_id}_{session_counter}")
             if session_key not in scroll_sessions:
                 scroll_sessions[session_key] = event
             else:
@@ -110,9 +159,10 @@ def event_statistics(request):
         last_event_type = event['type']
 
     success_paths = [
-        'http://127.0.0.1:3000/payment/stripe/',
-        'http://127.0.0.1:3000/payment/paypal/'
+        'http://127.0.0.1:8080/payment/stripe/',
+        'http://127.0.0.1:8080/payment/paypal/'
     ]
+
     payment_pageviews = Event.objects.filter(endpoint__in=endpoints, path__in=success_paths).count()
     total_pageviews = Event.objects.filter(endpoint__in=endpoints, type='pageview').count()
 
@@ -124,7 +174,7 @@ def event_statistics(request):
 
     success_list = [{
         'path': event['path'],
-        'timestamp': event['timestamp']
+        'timestamp': parse_datetime(event['timestamp']).strftime('%Y-%m-%d %H:%M:%S')  # Format timestamp
     } for event in success_data]
 
     final_events = list(scroll_sessions.values()) + [event for event in events_data if event['type'] != 'scroll']
@@ -136,14 +186,36 @@ def event_statistics(request):
     pageview_counts_data = {item['path']: item['count'] for item in pageview_counts}
     pageview_counts_json = json.dumps(pageview_counts_data)
 
+    user_profiles = summarize_user_journey(events_data)
+    insights = analyze_journey(user_profiles)
+
+    # Pagination logic
+    if selected_session_id and selected_session_id in user_profiles:
+        selected_session = user_profiles[selected_session_id]
+        paginator = Paginator(selected_session, 20)  # Show 20 events per page
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+    else:
+        page_obj = None
+
     context = {
         'successes': success_list,
         'events': final_events,
-        'events_json': json.dumps(final_events, default=str),
+        'events_json': json.dumps(final_events, default=str),  # Ensure JSON serialization
         'pageview_counts_json': pageview_counts_json,
-        'payment_percentage': payment_percentage
+        'payment_percentage': payment_percentage,
+        'user_profiles': user_profiles,  # Pass user profiles to the template
+        'insights': insights,
+        'selected_session_id': selected_session_id,
+        'page_obj': page_obj
     }
     return render(request, 'statistics.html', context)
+
+
+
+
+
+
 @login_required
 def payment_success(request):
     user = request.user
@@ -187,11 +259,23 @@ def register(request):
 def tracking_script(request, endpoint_id):
     endpoint = get_object_or_404(Endpoint, id=endpoint_id)
     custom_js = endpoint.custom_js if endpoint.reviewed else ''
+
     script = f"""
     (function() {{
       const apiKey = '{endpoint.api_key}';
+      const sessionId = getSessionId();
+
+      function getSessionId() {{
+        let sessionId = localStorage.getItem('sessionId');
+        if (!sessionId) {{
+          sessionId = 'sess_' + Math.random().toString(36).substr(2, 9);
+          localStorage.setItem('sessionId', sessionId);
+        }}
+        return sessionId;
+      }}
     
       const sendEvent = (eventData) => {{
+        eventData.session_id = sessionId;  // Include session ID in the event data
         const endpoint = 'http://127.0.0.1:8000/api/events';
         fetch(endpoint, {{
           method: 'POST',

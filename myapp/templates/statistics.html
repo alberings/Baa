@@ -8,42 +8,11 @@
 {% load humanize %}
 
 {% block content %}
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-  <a class="navbar-brand" href="#">Analytics Dashboard</a>
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
-  <div class="collapse navbar-collapse" id="navbarNav">
-    <ul class="navbar-nav ml-auto">
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'home' %}">Home</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'event_statistics' %}">Statistics</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'manage_endpoints' %}">Manage Endpoints</a>
-      </li>
-      {% if user.is_authenticated %}
-      <li class="nav-item">
-        <form method="post" action="{% url 'logout' %}" class="form-inline">
-          {% csrf_token %}
-          <button type="submit" class="btn btn-outline-danger">Logout</button>
-        </form>
-      </li>
-      {% else %}
-      <li class="nav-item">
-        <a class="nav-link" href="{% url 'login' %}">Login</a>
-      </li>
-      {% endif %}
-    </ul>
-  </div>
-</nav>
-
-<div class="container-fluid">
+<div  class="container-fluid">
     <div id="event_statistics" class="row">
-        <div class="col-md-12">
-            <h1 class="mt-5">DATU ANALĪZE</h1>
+        
+        <div class="col-md-12" >
+            <h1  class="mt-5">DATU ANALĪZE</h1>
 
             <!-- Filter by Path -->
             <form method="get" action="." class="mb-3">
@@ -54,6 +23,7 @@
                 <button type="submit" class="btn btn-primary">Atlasīt</button>
             </form>
 
+
             <div class="row">
                 <div class="col-md-6">
                     <div id="chartiii1">
@@ -62,7 +32,7 @@
                     </div>
                 </div>
             </div>
-            <div class="row">    
+            <div class="row">
                 <div class="col-md-6">
                     <div id="chartiii2">
                         <h1 class="mt-5">Klasifikācijas datu grafiks</h1>
@@ -80,6 +50,70 @@
                 </div>
             </div>
 
+
+            <div>
+                <h3 class="mt-5">Insights</h3>
+                    {% if insights %}
+                        <ul>
+                        {% for session_id, insight in insights.items %}
+                            <li><strong>{{ session_id }}</strong>: {{ insight }}</li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No insights available</p>
+                    {% endif %}
+            
+            
+            </div>    
+            <!-- Select Session ID -->
+                <form method="get" action=".">
+                    <div class="form-group">
+                        <label for="session_id">Select Session ID:</label>
+                        <select id="session_id" name="session_id" class="form-control">
+                            {% for session_id in user_profiles.keys %}
+                                <option value="{{ session_id }}" {% if session_id == selected_session_id %}selected{% endif %}>{{ session_id }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">View Session</button>
+                </form>
+
+                {% if selected_session_id %}
+                <!-- Display Selected Session Data -->
+                <div class="row">
+                    <div class="col-md-12">
+                        <h2 class="mt-5">Session: {{ selected_session_id }}</h2>
+                        <ul>
+                            {% for event in page_obj %}
+                                <li>{{ event.timestamp|date:"Y-m-d H:i:s" }}: {{ event.type }} on {{ event.path }}</li>
+                            {% endfor %}
+                        </ul>
+
+                        <!-- Pagination controls -->
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item"><a class="page-link" href="?session_id={{ selected_session_id }}&page={{ page_obj.previous_page_number }}">Previous</a></li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">Previous</span></li>
+                                {% endif %}
+                                {% for num in page_obj.paginator.page_range %}
+                                    <li class="page-item {% if page_obj.number == num %}active{% endif %}"><a class="page-link" href="?session_id={{ selected_session_id }}&page={{ num }}">{{ num }}</a></li>
+                                {% endfor %}
+                                {% if page_obj.has_next %}
+                                    <li class="page-item"><a class="page-link" href="?session_id={{ selected_session_id }}&page={{ page_obj.next_page_number }}">Next</a></li>
+                                {% else %}
+                                    <li class="page-item disabled"><span class="page-link">Next</span></li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+
+                    </div>
+                </div>
+                {% endif %}
+
+
+
             <div id="payment_success_events" class="row">
                 <div class="col-md-12">
                     <h1 class="mt-5">Kopējie apmaksāšanas apmeklējumi</h1>
@@ -95,7 +129,7 @@
                                 {% for success in successes %}
                                 <tr>
                                     <td>{{ success.path }}</td>
-                                    <td>{{ success.timestamp|date:"Y-m-d H:i:s" }}</td>
+                                    <td>{{ success.timestamp }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
@@ -129,14 +163,12 @@
                                     <td>{{ event.timestamp|date:"Y-m-d H:i:s" }}</td>
                                     <td>
                                       {% if event.type == 'scroll' %}
-                                        Max Depth: {{ event.details.depth }}%
-                                      {% elif event.type == 'hover' %}
-                                        Hovered: {{ event.target }}
-                                      {% elif event.type == 'pageview' or event.type == 'click' %}
-                                        {{ event.details|default:"No details available" }}
-                                      {% else %}
-                                        {{ event.details }}
-                                      {% endif %}
+                                      Max Depth: {{ event.details.depth }}%
+                                  {% elif event.type == 'hover' %}
+                                      Hovered: {{ event.details.target }}
+                                  {% else %}
+                                      {{ event.details }}
+                                  {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}

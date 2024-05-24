@@ -97,5 +97,29 @@ document.querySelectorAll('video').forEach(video => {
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        function deleteEndpoint(endpointId) {
+            fetch(`/delete-endpoint/${endpointId}/`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Failed to delete endpoint.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to delete endpoint.');
+            });
+        }
+        </script>
+
 </body>
 </html>

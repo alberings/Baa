@@ -14,11 +14,13 @@ class Endpoint(models.Model):
         return self.url
 
 class Event(models.Model):
-    endpoint = models.ForeignKey(Endpoint, on_delete=models.CASCADE)  # Remove null=True
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    endpoint = models.ForeignKey(Endpoint, on_delete=models.CASCADE)
     type = models.CharField(max_length=50)
     path = models.CharField(max_length=200)
     timestamp = models.DateTimeField(auto_now_add=True)
     details = models.JSONField()
+    session_id = models.CharField(max_length=50)  # Add default value
     
     def __str__(self):
         return f"{self.type} on {self.path} at {self.timestamp}"
