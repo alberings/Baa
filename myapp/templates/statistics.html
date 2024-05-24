@@ -2,9 +2,44 @@
 
 {% block head %}
   <script src="https://d3js.org/d3.v6.min.js"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 {% endblock head %}
 
+{% load humanize %}
+
 {% block content %}
+<nav class="navbar navbar-expand-lg navbar-light bg-light">
+  <a class="navbar-brand" href="#">Analytics Dashboard</a>
+  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+  <div class="collapse navbar-collapse" id="navbarNav">
+    <ul class="navbar-nav ml-auto">
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'home' %}">Home</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'event_statistics' %}">Statistics</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'manage_endpoints' %}">Manage Endpoints</a>
+      </li>
+      {% if user.is_authenticated %}
+      <li class="nav-item">
+        <form method="post" action="{% url 'logout' %}" class="form-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-danger">Logout</button>
+        </form>
+      </li>
+      {% else %}
+      <li class="nav-item">
+        <a class="nav-link" href="{% url 'login' %}">Login</a>
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+</nav>
+
 <div class="container-fluid">
     <div id="event_statistics" class="row">
         <div class="col-md-12">
@@ -47,7 +82,7 @@
 
             <div id="payment_success_events" class="row">
                 <div class="col-md-12">
-                    <h1 class="mt-5">Kopējie apmaksāšanas apmeklējumi </h1>
+                    <h1 class="mt-5">Kopējie apmaksāšanas apmeklējumi</h1>
                     <div class="table-responsive">
                         <table class="table table-bordered">
                             <thead>
@@ -60,7 +95,7 @@
                                 {% for success in successes %}
                                 <tr>
                                     <td>{{ success.path }}</td>
-                                    <td>{{ success.timestamp }}</td>
+                                    <td>{{ success.timestamp|date:"Y-m-d H:i:s" }}</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
@@ -91,15 +126,17 @@
                                 <tr>
                                     <td>{{ event.type }}</td>
                                     <td>{{ event.path }}</td>
-                                    <td>{{ event.timestamp }}</td>
+                                    <td>{{ event.timestamp|date:"Y-m-d H:i:s" }}</td>
                                     <td>
                                       {% if event.type == 'scroll' %}
-                                      Max Depth: {{ event.details.depth }}%
-                                  {% elif event.type == 'hover' %}
-                                      Hovered: {{ event.target }}
-                                  {% else %}
-                                      {{ event.details }}
-                                  {% endif %}
+                                        Max Depth: {{ event.details.depth }}%
+                                      {% elif event.type == 'hover' %}
+                                        Hovered: {{ event.target }}
+                                      {% elif event.type == 'pageview' or event.type == 'click' %}
+                                        {{ event.details|default:"No details available" }}
+                                      {% else %}
+                                        {{ event.details }}
+                                      {% endif %}
                                     </td>
                                 </tr>
                                 {% empty %}

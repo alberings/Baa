@@ -20,6 +20,7 @@ urlpatterns = [
     path('tracking-script/<int:endpoint_id>/', tracking_script, name='tracking_script'),
     path('manage-endpoints/', manage_endpoints, name='manage_endpoints'),
     path('delete-endpoint/<int:endpoint_id>/', delete_endpoint, name='delete_endpoint'),
+    path('profile/', views.profile, name='profile'),
 
 
 

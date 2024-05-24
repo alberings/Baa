@@ -20,6 +20,7 @@ from django.http import HttpResponseForbidden
 from .utils import sanitize_js
 from django.contrib.admin.views.decorators import staff_member_required
 from django import forms
+from .forms import UserProfileForm
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,9 @@ def event_statistics(request):
     session_id = 0
     last_event_type = None
     for event in events_data:
-        event_time = parse_datetime(event['timestamp'])
+        if isinstance(event['timestamp'], str):
+            event['timestamp'] = parse_datetime(event['timestamp'])
+        event_time = event['timestamp']
         if event['type'] == 'scroll':
             if last_event_time and (event_time - last_event_time > timedelta(minutes=1) or last_event_type != 'scroll'):
                 session_id += 1
@@ -136,12 +139,11 @@ def event_statistics(request):
     context = {
         'successes': success_list,
         'events': final_events,
-        'events_json': json.dumps(final_events),
+        'events_json': json.dumps(final_events, default=str),
         'pageview_counts_json': pageview_counts_json,
         'payment_percentage': payment_percentage
     }
     return render(request, 'statistics.html', context)
-
 @login_required
 def payment_success(request):
     user = request.user
@@ -310,3 +312,14 @@ class CustomJSForm(forms.Form):
         super().__init__(*args, **kwargs)
         if user:
             self.fields['endpoint'].queryset = Endpoint.objects.filter(user=user)
+
+@login_required
+def profile(request):
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, instance=request.user)
+        if form.is_valid():
+            form.save()
+            return redirect('profile')
+    else:
+        form = UserProfileForm(instance=request.user)
+    return render(request, 'profile.html', {'form': form})

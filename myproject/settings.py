@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'myapp',
     'corsheaders',
+    'django.contrib.humanize',
+
 ]
 
 

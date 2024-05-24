@@ -18,3 +18,8 @@ class EndpointForm(forms.ModelForm):
 class CustomJSForm(forms.Form):
     endpoint = forms.ModelChoiceField(queryset=Endpoint.objects.all(), label="Select Endpoint")
     custom_js = forms.CharField(widget=forms.Textarea, label="Custom JS")
+
+class UserProfileForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ['username', 'first_name', 'last_name', 'email']
