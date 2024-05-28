@@ -20,7 +20,7 @@ class Event(models.Model):
     path = models.CharField(max_length=200)
     timestamp = models.DateTimeField(auto_now_add=True)
     details = models.JSONField()
-    session_id = models.CharField(max_length=50)  # Add default value
+    session_id = models.CharField(max_length=50) 
     
     def __str__(self):
         return f"{self.type} on {self.path} at {self.timestamp}"
