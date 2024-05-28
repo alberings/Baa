@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Endpoint, Event  # Import your Event model
+from .models import Endpoint, Event  
 
 class EndpointAdmin(admin.ModelAdmin):
     list_display = ('url', 'api_key', 'reviewed')
