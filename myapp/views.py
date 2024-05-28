@@ -34,7 +34,7 @@ def register_endpoint(request):
             endpoint.user = request.user
             endpoint.api_key = uuid.uuid4()
             endpoint.save()
-            return redirect('event_statistics')  # Redirect to a relevant page
+            return redirect('event_statistics') 
     else:
         form = EndpointForm()
     return render(request, 'register_endpoint.html', {'form': form})
@@ -88,7 +88,7 @@ def analyze_journey(summary):
             journey += f"{event['timestamp']}: {event['type']} on {event['path']}\n"
             if event['type'] == 'pageview' and '/payment/' in event['path']:
                 insights[session_id] = "User completed the order."
-                break  # No need to check further if the order is completed
+                break  
             elif event['type'] == 'pageview' and '/checkout/' in event['path']:
                 if 'duration' not in [e['type'] for e in events]:
                     insights[session_id] = "User visited checkout page but did not complete purchase."
@@ -110,9 +110,9 @@ def event_statistics(request):
     if path:
         try:
             endpoint = Endpoint.objects.get(user=user, url=path)
-            endpoints = [endpoint]  # Ensure endpoints is defined as a list
+            endpoints = [endpoint]  
         except Endpoint.DoesNotExist:
-            # Broader matching if exact match fails
+           
             endpoints = Endpoint.objects.filter(user=user, url__startswith=path.split('/')[0] + '//' + path.split('/')[2])
             if not endpoints:
                 return JsonResponse({"error": "You do not have access to this endpoint's data"}, status=403)
@@ -125,16 +125,16 @@ def event_statistics(request):
     events_data = [event['fields'] for event in json.loads(events_json)]
 
     scroll_sessions = {}
-    user_profiles = {}  # Dictionary to store user profiles
+    user_profiles = {}  
     last_event_time = None
     session_counter = 0
     last_event_type = None
 
     for event in events_data:
-        event_time = parse_datetime(event['timestamp'])  # Added missing event_time parsing
-        event['timestamp'] = event_time  # Store parsed datetime object
+        event_time = parse_datetime(event['timestamp'])  
+        event['timestamp'] = event_time  
 
-        session_id = event['details'].get('session_id', 'default_session_id')  # Extract session ID
+        session_id = event['details'].get('session_id', 'default_session_id')  
 
         if session_id not in user_profiles:
             user_profiles[session_id] = []
@@ -192,7 +192,7 @@ def event_statistics(request):
     # Pagination logic
     if selected_session_id and selected_session_id in user_profiles:
         selected_session = user_profiles[selected_session_id]
-        paginator = Paginator(selected_session, 20)  # Show 20 events per page
+        paginator = Paginator(selected_session, 20)  
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
     else:
@@ -201,10 +201,10 @@ def event_statistics(request):
     context = {
         'successes': success_list,
         'events': final_events,
-        'events_json': json.dumps(final_events, default=str),  # Ensure JSON serialization
+        'events_json': json.dumps(final_events, default=str),  
         'pageview_counts_json': pageview_counts_json,
         'payment_percentage': payment_percentage,
-        'user_profiles': user_profiles,  # Pass user profiles to the template
+        'user_profiles': user_profiles,  
         'insights': insights,
         'selected_session_id': selected_session_id,
         'page_obj': page_obj
