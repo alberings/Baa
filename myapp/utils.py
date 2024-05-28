@@ -1,7 +1,7 @@
 import re
 
 def sanitize_js(js_code):
-    # Simple sanitization: remove potentially harmful patterns
+    
     dangerous_patterns = [
         r'<script>',
         r'</script>',
